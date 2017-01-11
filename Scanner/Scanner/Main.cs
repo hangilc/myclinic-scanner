@@ -14,36 +14,90 @@ namespace Scanner
 
         private void startScanButton_Click(object sender, EventArgs e)
         {
-            string savePath = this.saveFileNameTextBox.Text;
+            string savePath = getSavePath();
             if( savePath == "")
             {
-                MessageBox.Show("ファイル名が設定されていません。", "エラー", MessageBoxButtons.OK,
-                     MessageBoxIcon.Error);
                 return;
             }
-            if (savePath.EndsWith(".jpg") || savePath.EndsWith(".jpeg"))
+            try
             {
-                ; // nop
+                WIA.CommonDialog dlg = new WIA.CommonDialog();
+                Device d = dlg.ShowSelectDevice(WiaDeviceType.ScannerDeviceType, true, false);
+                if (d == null)
+                {
+                    return;
+                }
+                Item item = d.Items[1];
+                ImageFile image = dlg.ShowTransfer(item, FormatID.wiaFormatJPEG, false) as ImageFile;
+                image.SaveFile(savePath);
             }
-            else
+            catch (Exception ex)
             {
-                savePath += ".jpeg";
+                showError(ex.Message);
             }
-            if( File.Exists(savePath))
+        }
+
+        private string getSavePath()
+        {
+            string dirPath = saveDirPathTextBox.Text;
             {
-                MessageBox.Show(savePath + " はすでに存在します。", "エラー", MessageBoxButtons.OK,
-                     MessageBoxIcon.Error);
-                return;
+                if (dirPath == "")
+                {
+                    showError("フォルダー名が設定されていません。");
+                    return "";
+                }
+                try
+                {
+                    FileAttributes attr = File.GetAttributes(dirPath);
+                    if( !attr.HasFlag(FileAttributes.Directory))
+                    {
+                        showError("フォルダー名に該当するものがフォルダーでありません。");
+                        return "";
+                    }
+                }
+                catch(Exception ex)
+                {
+                    if (ex is FileNotFoundException || ex is DirectoryNotFoundException)
+                    {
+                        showError("該当するフォルダーが見つけられません");
+                    }
+                    else
+                    {
+                        showError(ex.Message);
+                    }
+                    return "";
+                }
             }
-            WIA.CommonDialog dlg = new WIA.CommonDialog();
-            Device d = dlg.ShowSelectDevice(WiaDeviceType.ScannerDeviceType, true, false);
-            if (d == null)
+            string fileName = saveFileNameTextBox.Text;
             {
-                return;
+                if (fileName == "")
+                {
+                    showError("ファイル名が設定されていません。");
+                    return "";
+                }
+                if( fileName.EndsWith(".jpg") || fileName.EndsWith(".jpeg") )
+                {
+                    ; // nop
+                }
+                else
+                {
+                    fileName += ".jpeg";
+                }
             }
-            Item item = d.Items[1];
-            ImageFile image = dlg.ShowTransfer(item, FormatID.wiaFormatJPEG, false) as ImageFile;
-            image.SaveFile(savePath);
+            string path = Path.Combine(dirPath, fileName);
+            {
+                if( File.Exists(path) )
+                {
+                    showError("ファイルが既に存在します。");
+                    return "";
+                }
+            }
+            return path;
+        }
+
+        private void showError(string message)
+        {
+            MessageBox.Show(message, "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
     }
